@@ -1,0 +1,14 @@
+---
+
+- name: Print where we're deploying to
+  debug:
+    msg: "We are deploying to {{ env }}"
+
+- name: Include env specific variables
+  include_vars:
+    file: "{{ item }}" 
+  with_items:
+    - main.yml
+    - "{{ env }}.yml"
+
+- include: "{{ create_or_destroy }}.yml"

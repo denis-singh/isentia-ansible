@@ -1,0 +1,94 @@
+---
+### IAM role and policy
+
+- name: IAM role
+  iam_role:
+    name: "{{ application_stack }}-role"
+    assume_role_policy_document: "{{ lookup('file', 'iam_role_trust_policy_doc.json') }}"
+    managed_policy:
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerServiceFullAccess
+    state: absent
+  register: iam_role
+
+- name: IAM Policy
+  iam_policy:
+    iam_type: role
+    iam_name: "{{ iam_role.iam_role.role_name }}"
+    policy_name: "{{ application_stack }}-policy"
+    state: absent
+    policy_json: "{{ lookup('template', '../templates/iam_policy.json') }}"
+  tags:
+    - iam
+
+- name: Wait 15 seconds for IAM to propagate
+  pause:
+    seconds: 15
+  when: iam_role.changed
+
+### Security Group
+
+- name: Security group for instance
+  ec2_group:
+    region: "{{ aws_region }}"
+    name: "{{ application_stack }}-sg"
+    description: "Security group for {{ application_stack }} instance"
+    vpc_id: "{{ vpc_id }}"
+    purge_rules: true
+    rules: "{{ sec_group_instance_rules }}"
+  register: sec_group_instance
+
+### SSH key pair
+- name: Create AWS key pair
+  ec2_key:
+    region: "{{ aws_region }}"
+    name: "{{ aws_key_pair_name }}"
+    state: absent
+
+### Auto-Scaling launch configuration
+
+- name: Launch configuration
+  ec2_lc:
+    region: "{{ aws_region }}"
+    name: "{{ application_stack }}-lc"
+    assign_public_ip: "{{ use_public_ip }}"
+    image_id: "{{ ami_id }}"
+    key_name: "{{ aws_key_pair_name }}"
+    security_groups:
+      - "{{ sec_group_instance.group_id }}"
+    instance_type: "{{ instance_type }}"
+    instance_profile_name: "{{ iam_role.iam_role.role_name }}"
+    volumes:
+      - device_name: /dev/xvda
+        volume_size: 20
+        device_type: gp2
+        delete_on_termination: true
+    user_data: "{{ lookup('template', '../templates/user_data') }}"
+  register: lc
+  tags:
+    - asg
+
+### Auto-Scaling group
+
+- name: Auto-Scaling group
+  ec2_asg:
+    region: "{{ aws_region }}"
+    name: "{{ application_stack }}-asg"
+    launch_config_name: "{{ lc.name }}"
+    desired_capacity: "{{ asg_desired_size }}"
+    min_size: "{{ asg_min_size }}"
+    max_size: "{{ asg_max_size }}"
+    vpc_zone_identifier: "{{ vpc_subnets_for_asg }}"
+  register: asg
+  tags:
+    - asg
+
+### ECS cluster
+
+- name: ECS cluster
+  ecs_cluster:
+    region: "{{ aws_region }}"
+    name: "{{ cluster_name }}"
+    state: absent
+  tags:
+    - ecs

@@ -1,0 +1,10 @@
+---
+- name: Application deployment
+  hosts: localhost
+  connection: local
+  pre_tasks:
+    - include_vars:
+        group_vars/all
+
+  roles:
+    - { role: "{{ app_stack }}", env: "{{ env }}", docker_tag_to_use: "{{ app_version }}" }

@@ -1,0 +1,7 @@
+---
+env: dev
+vpc_id: vpc-bd7d2ada
+vpc_subnets_for_asg: 
+ - subnet-0545eb5d
+ - subnet-4c745c05
+ - subnet-7f3e0118

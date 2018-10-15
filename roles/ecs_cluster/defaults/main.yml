@@ -1,0 +1,19 @@
+---
+create_or_destroy: create
+ami_id: ami-05b48eda7f92aadbe
+type: ecscluster
+aws_key_pair_name: denis-personal
+instance_type: m4.large
+asg_min_size: 1
+asg_max_size: 2
+asg_desired_size: 1
+cluster_name: "isentia-cluster"
+use_public_ip: no
+aws_region: ap-southeast-2
+application_stack: isentia-webserver
+sec_group_instance_rules:
+  - proto: tcp
+    from_port: 32768
+    to_port: 60999
+    cidr_ip: "172.19.0.0/16"
+
